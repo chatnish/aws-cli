@@ -57,7 +57,7 @@ CREATE_CLUSTER_DESCRIPTION = (
     ' and InstanceProfile and KeyName arguments under --ec2-attributes</code>.</p>')
 
 DESCRIBE_CLUSTER_DESCRIPTION = (
-    '<p>Provides  cluster-level details including status, hardware'
+    '<p>Provides cluster-level details including status, hardware'
     ' and software configuration, VPC settings, bootstrap'
     ' actions, instance groups and so on.</p>'
     '<p>Permissions needed for describe-cluster include:'
