@@ -1,12 +1,13 @@
 import errno
 import os
+import subprocess
 
 from datetime import datetime
 from dateutil.tz import tzlocal, tzutc
 from dateutil.relativedelta import relativedelta
 
 from awscli.testutils import unittest, mock, FileCreator
-from awscli.compat import urlparse, RawConfigParser, StringIO
+from awscli.compat import urlparse, RawConfigParser
 from awscli.customizations.codeartifact.login import (
     BaseLogin, NuGetLogin, DotNetLogin, NpmLogin, PipLogin, TwineLogin,
     get_relative_expiration_time
@@ -450,6 +451,40 @@ class TestNpmLogin(unittest.TestCase):
             expected_calls, any_order=True
         )
 
+    def test_login_always_auth_error_ignored(self):
+        """Test login ignores error for always-auth.
+
+        This test is for NPM version >= 9 where the support of 'always-auth'
+        has been dropped. Running the command to set config gives a non-zero
+        exit code. This is to make sure that login ignores that error and all
+        other commands executes successfully.
+        """
+        def side_effect(command, stdout, stderr):
+            """Set side_effect for always-auth config setting command"""
+            if any('always-auth' in arg for arg in command):
+                raise subprocess.CalledProcessError(
+                    returncode=1,
+                    cmd=command
+                )
+
+            return mock.DEFAULT
+
+        self.subprocess_utils.check_call.side_effect = side_effect
+        expected_calls = []
+
+        for command in self.commands:
+            expected_calls.append(mock.call(
+                    command,
+                    stdout=self.subprocess_utils.PIPE,
+                    stderr=self.subprocess_utils.PIPE,
+                )
+            )
+        self.test_subject.login()
+
+        self.subprocess_utils.check_call.assert_has_calls(
+                expected_calls, any_order=True
+            )
+
     def test_get_scope(self):
         expected_value = '@{}'.format(self.namespace)
         scope = self.test_subject.get_scope(self.namespace)
@@ -590,7 +625,7 @@ class TestTwineLogin(unittest.TestCase):
         self, pypi_rc_str, server, repo_url=None, username=None, password=None
     ):
         pypi_rc = RawConfigParser()
-        pypi_rc.readfp(StringIO(pypi_rc_str))
+        pypi_rc.read_string(pypi_rc_str)
 
         self.assertIn('distutils', pypi_rc.sections())
         self.assertIn('index-servers', pypi_rc.options('distutils'))
